@@ -52,7 +52,7 @@ class TestGenerateApiKey(HttpCase):
     def test_generate_ok(self):
         # Clear the parameter so the code default (90 days) is exercised,
         # independently of any value persisted in the database.
-        self.env["ir.config_parameter"].set_param(
+        self.env["ir.config_parameter"].set_int(
             "auth_api_key_native_generate.duration", False
         )
         body = self._generate(self._credentials()).json()
@@ -70,8 +70,8 @@ class TestGenerateApiKey(HttpCase):
         self.assertLessEqual(delta_days, 90)
 
     def test_generate_respects_configured_duration(self):
-        self.env["ir.config_parameter"].set_param(
-            "auth_api_key_native_generate.duration", "30"
+        self.env["ir.config_parameter"].set_int(
+            "auth_api_key_native_generate.duration", 30
         )
         body = self._generate(self._credentials()).json()
         expiration = self._parse_expiration(body)

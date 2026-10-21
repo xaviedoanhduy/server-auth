@@ -5,6 +5,8 @@ import logging
 from contextlib import ExitStack
 from datetime import timedelta, timezone
 
+import psycopg2
+
 import odoo
 from odoo import fields, http
 from odoo.exceptions import AccessDenied
@@ -25,15 +27,11 @@ MAX_CONTENT_LENGTH = 8 * 1024  # 8 KiB
 class AuthApiKeyNativeGenerate(Controller):
     def _get_api_key_duration(self, env):
         """Return the configured validity duration (in days) for new keys."""
-        param = (
+        duration = (
             env["ir.config_parameter"]
             .sudo()
-            .get_param("auth_api_key_native_generate.duration")
+            .get_int("auth_api_key_native_generate.duration", DEFAULT_DURATION_DAYS)
         )
-        try:
-            duration = int(param)
-        except (TypeError, ValueError):
-            return DEFAULT_DURATION_DAYS
         return duration if duration > 0 else DEFAULT_DURATION_DAYS
 
     @route(
@@ -84,7 +82,7 @@ class AuthApiKeyNativeGenerate(Controller):
                 {"error": "'db', 'login' and 'password' are required."}, status=400
             )
 
-        if not http.db_filter([db]):
+        if not http.router.db_filter([db]):
             return request.make_json_response(
                 {"error": "Database not found."}, status=404
             )
@@ -96,7 +94,7 @@ class AuthApiKeyNativeGenerate(Controller):
                 # clean exit of the ExitStack, persisting the new key.
                 try:
                     registry = odoo.modules.registry.Registry(db)
-                except Exception:
+                except psycopg2.OperationalError:
                     _logger.warning("Database %r not found or not reachable.", db)
                     return request.make_json_response(
                         {"error": "Database not found."}, status=404
